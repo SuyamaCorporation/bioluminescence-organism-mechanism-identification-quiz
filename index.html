@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>生物発光 発光生物・発光機構クイズ</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  .fade-in { animation: fadeIn 0.3s ease-in; }
+  @keyframes fadeIn { from {opacity:0;transform:translateY(10px)} to {opacity:1;transform:translateY(0)} }
+  .glow { box-shadow: 0 0 20px var(--glow-color, #22d3ee); animation: glowPulse 2s infinite; }
+  @keyframes glowPulse { 0%,100%{box-shadow:0 0 10px var(--glow-color,#22d3ee)} 50%{box-shadow:0 0 25px var(--glow-color,#22d3ee)} }
+  .choice-btn { transition: all 0.2s; }
+  .choice-btn.correct { background:#166534 !important; border-color:#22c55e !important; }
+  .choice-btn.wrong { background:#7f1d1d !important; border-color:#ef4444 !important; }
+  .color-swatch { display:inline-block; width:48px; height:16px; border-radius:4px; vertical-align:middle; border:1px solid rgba(255,255,255,0.2); }
+</style>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen">
+<div class="max-w-xl mx-auto px-4 py-6">
+
+  <header class="text-center mb-6">
+    <div class="text-4xl mb-2">✨</div>
+    <h1 class="text-2xl font-bold text-cyan-400">生物発光クイズ</h1>
+    <p class="text-gray-400 text-sm mt-1">Bioluminescence Organism &amp; Mechanism Quiz</p>
+  </header>
+
+  <!-- Menu -->
+  <div id="screen-menu" class="fade-in">
+    <div class="bg-gray-800 rounded-xl p-5 mb-4">
+      <h2 class="font-bold text-cyan-300 mb-4 text-center">クイズモードを選択</h2>
+      <div class="grid gap-3 mb-4">
+        <button onclick="startQuiz('organism')" class="bg-cyan-800 hover:bg-cyan-700 py-3 px-4 rounded-xl text-left transition font-bold" aria-label="生物名当てクイズを開始">
+          <div>🦠 生物名当てクイズ</div>
+          <div class="text-xs text-cyan-200 font-normal mt-1">説明から発光生物を4択で当てる</div>
+        </button>
+        <button onclick="startQuiz('mechanism')" class="bg-purple-800 hover:bg-purple-700 py-3 px-4 rounded-xl text-left transition font-bold" aria-label="発光機構マッチングを開始">
+          <div>⚗️ 発光機構マッチング</div>
+          <div class="text-xs text-purple-200 font-normal mt-1">生化学的経路と生物を対応付ける</div>
+        </button>
+        <button onclick="startQuiz('truefalse')" class="bg-green-800 hover:bg-green-700 py-3 px-4 rounded-xl text-left transition font-bold" aria-label="○×クイズを開始">
+          <div>⭕ ○×クイズ</div>
+          <div class="text-xs text-green-200 font-normal mt-1">生物発光に関する事実の正誤判定</div>
+        </button>
+      </div>
+    </div>
+    <div class="bg-gray-800 rounded-xl p-4" role="region" aria-label="ハイスコア">
+      <h2 class="text-cyan-400 font-bold mb-3">ハイスコア</h2>
+      <div id="hs-display" class="grid grid-cols-3 gap-3 text-center text-sm"></div>
+    </div>
+  </div>
+
+  <!-- Quiz Screen -->
+  <div id="screen-quiz" class="hidden fade-in">
+    <div class="flex justify-between items-center mb-4">
+      <button onclick="goMenu()" class="text-gray-400 hover:text-white transition" aria-label="メニューに戻る">← メニュー</button>
+      <div class="text-sm flex gap-4">
+        <span>問題: <strong id="q-num" class="text-cyan-400">1</strong>/20</span>
+        <span>スコア: <strong id="q-score" class="text-yellow-400">0</strong></span>
+      </div>
+    </div>
+    <div class="bg-gray-700 rounded-full h-1.5 mb-4">
+      <div id="progress-bar" class="bg-cyan-500 h-1.5 rounded-full transition-all duration-300" style="width:0%"></div>
+    </div>
+
+    <div class="bg-gray-800 rounded-xl p-5 mb-4">
+      <div id="q-mode-label" class="text-xs text-gray-400 mb-2 uppercase tracking-wider"></div>
+      <div id="q-text" class="text-sm text-gray-200 leading-relaxed mb-4"></div>
+      <div id="q-choices" class="grid gap-3" role="group" aria-label="選択肢"></div>
+    </div>
+
+    <div id="answer-panel" class="hidden bg-gray-800 rounded-xl p-4 mb-3 fade-in" role="region" aria-live="polite">
+      <div id="ans-verdict" class="font-bold mb-3 text-lg"></div>
+      <!-- Wavelength / Color swatch -->
+      <div id="wavelength-info" class="hidden bg-gray-700 rounded-lg p-3 mb-3">
+        <div class="flex items-center gap-3">
+          <div>
+            <div class="text-xs text-gray-400">発光波長</div>
+            <div id="wl-nm" class="text-lg font-bold text-cyan-300"></div>
+          </div>
+          <div>
+            <div class="text-xs text-gray-400">発光色</div>
+            <div id="wl-swatch" class="color-swatch mt-1"></div>
+          </div>
+          <div class="flex-1 text-xs text-gray-300" id="wl-desc"></div>
+        </div>
+      </div>
+      <div id="ans-detail" class="text-sm text-gray-300 leading-relaxed mb-3"></div>
+      <button onclick="nextQuestion()" id="next-btn" class="w-full bg-cyan-700 hover:bg-cyan-600 py-2 rounded-lg font-bold transition">次の問題 →</button>
+    </div>
+  </div>
+
+  <!-- Result Screen -->
+  <div id="screen-result" class="hidden fade-in text-center">
+    <div class="bg-gray-800 rounded-xl p-8 mb-4">
+      <div id="res-emoji" class="text-5xl mb-3"></div>
+      <h2 class="text-xl font-bold mb-2">クイズ終了！</h2>
+      <div id="res-score" class="text-4xl font-bold text-yellow-400 mb-1"></div>
+      <div id="res-detail" class="text-gray-400 text-sm mb-2"></div>
+      <div id="res-new" class="hidden text-green-400 font-bold">🎉 新記録！</div>
+    </div>
+    <button onclick="goMenu()" class="w-full bg-cyan-700 hover:bg-cyan-600 py-3 rounded-xl font-bold transition">メニューに戻る</button>
+  </div>
+
+</div>
+<script>
+function escapeHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+// ===== Bioluminescence Database =====
+const ORGANISMS = [
+  {
+    name:'ホタル', en:'Firefly', emoji:'✨',
+    mechanism:'ルシフェリン-ルシフェラーゼ反応（ATP依存）',
+    wavelength:560, color:'#ffdd00',
+    colorName:'黄緑〜黄色',
+    desc:'腹部発光器でルシフェリンをルシフェラーゼがATPの存在下で酸化。点滅パターンで異性を引き付ける。',
+    fact:'ホタルの発光効率は約90%と極めて高く、熱をほとんど発しない「冷光」。LEDの開発にも応用。'
+  },
+  {
+    name:'チョウチンアンコウ', en:'Anglerfish', emoji:'🎣',
+    mechanism:'発光細菌との共生（クオラムセンシング依存）',
+    wavelength:490, color:'#00aaff',
+    colorName:'青〜青緑',
+    desc:'頭部の発光器（餌木）に発光細菌を共生させる。バクテリアの代謝産物が発光源。',
+    fact:'チョウチンアンコウのメスのみが発光器を持つ。発光細菌は環境から取り込み、一度入ると世代を超えて維持される。'
+  },
+  {
+    name:'ヤコウチュウ（夜光虫）', en:'Noctiluca scintillans', emoji:'🌊',
+    mechanism:'剪断応力刺激によるルシフェリン系（機械発光）',
+    wavelength:474, color:'#0066ff',
+    colorName:'青',
+    desc:'波や船舶の撹拌で発光するディノフラジェラータ。海面が青く光る「海の蛍」現象を作り出す。',
+    fact:'夜光虫の発光は物理的な刺激（剪断応力）がトリガー。その反応は1ミリ秒以内と極めて速い。'
+  },
+  {
+    name:'オワンクラゲ', en:'Aequorea victoria', emoji:'🪼',
+    mechanism:'エクオリン（Ca²⁺依存）＋GFP（蛍光共鳴エネルギー移動）',
+    wavelength:508, color:'#00ff66',
+    colorName:'緑',
+    desc:'エクオリンがカルシウムイオンと反応して青色光を出し、GFP（緑色蛍光タンパク質）がそれを緑色に変換。',
+    fact:'GFPは2008年ノーベル化学賞の研究対象。現在は細胞生物学の「標識」として世界中の研究室で使われる。'
+  },
+  {
+    name:'ヴィブリオ・フィシェリ', en:'Vibrio fischeri', emoji:'🧫',
+    mechanism:'クオラムセンシング（細菌密度依存型発光）',
+    wavelength:490, color:'#00aaff',
+    colorName:'青',
+    desc:'細菌密度が閾値を超えるとAHLシグナル分子でlux遺伝子群が発現し発光。ハワイボブテールイカと共生。',
+    fact:'V. fischeriの発光はクオラムセンシング研究の出発点となった。「細菌同士のコミュニケーション」概念を確立した。'
+  },
+  {
+    name:'ヴァンパイアイカ', en:'Vampire Squid', emoji:'🦑',
+    mechanism:'フォトフォア（光器官）発光',
+    wavelength:470, color:'#2244ff',
+    colorName:'青',
+    desc:'体表のフォトフォア（発光器）から青い光を発する。腕の先端の発光で捕食者を撹乱し、スミの代わりに発光粒子を放出。',
+    fact:'ヴァンパイアイカはイカでもタコでもない独立の目（吸血烏賊目）に属する。6000万年以上前から形を変えていない。'
+  },
+  {
+    name:'テツカブトウシガエル（ホタルムシ）', en:'Railroad Worm (Phrixothrix)', emoji:'🚂',
+    mechanism:'異なる色の複数ルシフェリン系（赤+緑）',
+    wavelength:623, color:'#ff2200',
+    colorName:'赤（頭部）＋緑（側面）',
+    desc:'ベネズエラ産ホタルの幼虫で、頭部が赤、体側面が緑に発光。複数の独立したルシフェリン系を持つ珍しい例。',
+    fact:'ホタルムシは赤色発光（623nm）を持つ数少ない発光生物の一つ。赤は水中で透過しにくく、深海生物には見えない利点がある。'
+  },
+  {
+    name:'キツネノロウソク（発光キノコ）', en:'Foxfire Fungus', emoji:'🍄',
+    mechanism:'ルシフェリン-ルシフェラーゼ（真菌型・リバビン依存）',
+    wavelength:520, color:'#88ff44',
+    colorName:'黄緑',
+    desc:'朽木や菌糸が暗所で緑色に発光する現象。自然発光するキノコは世界で100種以上知られる。',
+    fact:'発光キノコの発光は連続的で、体内のリバビン誘導体が関与する。昆虫を誘引して胞子散布に利用している可能性がある。'
+  },
+  {
+    name:'ヴァルグラ（貝虫類）', en:'Vargula hilgendorfii', emoji:'🌟',
+    mechanism:'分泌型ルシフェリン-ルシフェラーゼ（体外放出型）',
+    wavelength:460, color:'#4499ff',
+    colorName:'青紫',
+    desc:'水中にルシフェリンとルシフェラーゼを分泌放出し、体外で発光雲を形成する。第二次大戦中の日本軍の隠密照明として使用。',
+    fact:'バルグラの発光は体外放出型。第二次大戦中の日本軍が地図を読む際に使用したとされる「海蛍」の正体。'
+  },
+  {
+    name:'ウミシイタケ（レニラ）', en:'Sea Pansy (Renilla)', emoji:'🌸',
+    mechanism:'レニラ・ルシフェラーゼ（コエレンテラジン依存）',
+    wavelength:480, color:'#2266ee',
+    colorName:'青',
+    desc:'底生のウミエラ（刺胞動物）。コエレンテラジンをレニラ・ルシフェラーゼが酸化して青色光を放出。',
+    fact:'レニラ・ルシフェラーゼはホタルルシフェラーゼとは全く異なる進化起源を持つ収斂進化の例。研究ツールとして広く使われる。'
+  },
+  {
+    name:'深海ワラジムシ（ミシダゴン）', en:'Deepsea Mysidacea', emoji:'🌊',
+    mechanism:'体液型発光（分泌型コエレンテラジン）',
+    wavelength:480, color:'#2266ee',
+    colorName:'青',
+    desc:'深海性オキアミ類似の甲殻類。体液を分泌して雲状の発光を作り、捕食者の目をくらます。',
+    fact:'深海の光は主に青色（450-490nm）で、水に最も透過しやすい波長帯と一致する。これは収斂進化の結果とされる。'
+  },
+  {
+    name:'ヒカリキンメダイ', en:'Flashlight Fish', emoji:'🐠',
+    mechanism:'発光バクテリア共生（眼下発光器）',
+    wavelength:490, color:'#00aaff',
+    colorName:'青',
+    desc:'目の下にバクテリア共生の発光器を持つ。まぶた様の黒い皮膚で発光をオン/オフし、仲間との通信や餌誘引に使う。',
+    fact:'ヒカリキンメダイは発光器を覆う皮膚を上下させることで、1分間に75回の「点滅」ができる。'
+  },
+  {
+    name:'ホタルイカ', en:'Firefly Squid', emoji:'💫',
+    mechanism:'フォトフォア（ルシフェリン-ルシフェラーゼ型）',
+    wavelength:470, color:'#2244ff',
+    colorName:'青',
+    desc:'富山湾で春に産卵のため浅瀬に集まり、全身の発光器（フォトフォア）が青く輝く。日本の自然の名所。',
+    fact:'ホタルイカの発光は腹側に集中し、上から見た時のシルエットを消す「逆照明」効果があるとされる。'
+  },
+  {
+    name:'ヒゲナガオトヒメエビ', en:'Deep-sea Shrimp (Acanthephyra)', emoji:'🦐',
+    mechanism:'口からの嘔吐型発光液（防御用）',
+    wavelength:480, color:'#2266ee',
+    colorName:'青',
+    desc:'深海エビで、脅威を感じると口から発光液を吐き出す。煙幕のように発光雲が捕食者を引きつけ本体は逃げる。',
+    fact:'発光液を「嘔吐」して防御する戦略は「代替発光」と呼ばれる。自分が光るのではなく敵に向けて光を「投げる」点がユニーク。'
+  },
+  {
+    name:'ウミホタル', en:'Sea Firefly (Vargula)', emoji:'🌊',
+    mechanism:'体外放出型ルシフェリン（バルグラ型）',
+    wavelength:460, color:'#4499ff',
+    colorName:'青紫',
+    desc:'砂浜に生息する貝虫類。暗所でオスがメスを引き付けるために発光軌跡を描く。',
+    fact:'ウミホタルはオスが発光しながら泳いで光の軌跡パターンでメスに信号を送る。種によってパターンが異なる。'
+  },
+  // Additional to reach 35
+  {
+    name:'エビスダイ（深海魚）', en:'Deep-sea Rattail', emoji:'🐟',
+    mechanism:'フォトフォア（バクテリア非依存型）',
+    wavelength:485, color:'#0088ff',
+    colorName:'青',
+    desc:'腹部にフォトフォアを持つ深海魚。胃や肛門周辺に発光器を配置し、腹側から光を出す。',
+    fact:'フォトフォアを持つ深海魚は少なくとも50目に分布しており、発光は深海魚の最も広い適応形質のひとつ。'
+  },
+  {
+    name:'ボウフウリンテンジクダイ', en:'Pinecone Fish', emoji:'🐡',
+    mechanism:'発光バクテリア共生（下顎発光器）',
+    wavelength:490, color:'#00aaff',
+    colorName:'青',
+    desc:'下顎にバクテリア共生の発光器を持つ魚。夜行性で発光を獲物誘引に使う。',
+    fact:'バクテリア共生発光は同一宿主の中で何百万もの細菌が同調して光ることで成立するクオラムセンシングの産物。'
+  },
+  {
+    name:'ヒメイカ（ハワイボブテールイカ）', en:'Hawaiian Bobtail Squid', emoji:'🦑',
+    mechanism:'V. fischeri共生（光抑制カモフラージュ）',
+    wavelength:490, color:'#00aaff',
+    colorName:'青',
+    desc:'腹部の発光器にV. fischeriを共生させ、月光に合わせて腹の明るさを調整することで海底から見た影を消す。',
+    fact:'ハワイボブテールイカとV. fischeriの共生は「逆照明カモフラージュ」と呼ばれる。宿主は細菌に住居と栄養を提供し、細菌は光を提供する。'
+  },
+  {
+    name:'ヒカリゴケ（偽発光）', en:'Luminous Moss (pseudo)', emoji:'🌿',
+    mechanism:'発光なし（生物蛍光・光反射）',
+    wavelength:550, color:'#88ff44',
+    colorName:'黄緑（蛍光）',
+    desc:'洞窟内で緑色に輝くが、自発光ではなく極僅かな光を屈折・集光して緑色蛍光を出す。厳密な意味での生物発光ではない。',
+    fact:'ヒカリゴケは生物発光ではなく「生物蛍光」の例。外部の光を吸収して異なる波長で放出する。これは厳密にバイオルミネッセンスとは区別される。'
+  },
+  {
+    name:'ウロコムシ（多毛類）', en:'Scale Worm (Polynoe)', emoji:'🪱',
+    mechanism:'ルシフェリン型（鱗板部位からの発光）',
+    wavelength:510, color:'#44ff88',
+    colorName:'青緑',
+    desc:'岩礁や深海に生息する多毛類。背部の鱗板（麟葉）が緑〜青緑色に発光し、捕食者への警告シグナルとして機能。',
+    fact:'ウロコムシの発光は鱗板（elytron）から発する。鱗板を外してもしばらく光り続けることから、鱗板自体に発光能力がある。'
+  },
+];
+
+const TRUE_FALSE = [
+  { q:'ホタルの発光効率はほぼ100%で、熱をほとんど発しない。', a:true, fact:'ホタルの発光は約90-95%がエネルギーとして光に変換される「冷光」。白熱球の発光効率（5%程度）とは対照的。' },
+  { q:'生物発光は深海においても青色光が最も多い。これは偶然であり水の透過特性とは無関係だ。', a:false, fact:'深海での青色発光（450-490nm）は水中での光透過が最大となる波長帯と一致する。これは収斂進化の結果。' },
+  { q:'GFP（緑色蛍光タンパク質）はオワンクラゲから発見され、2008年ノーベル化学賞の対象となった。', a:true, fact:'下村脩・シャルフィー・ツィンの3氏がGFP研究でノーベル化学賞を受賞。GFPは現代細胞生物学の最重要ツールの一つ。' },
+  { q:'すべての生物発光はルシフェリン-ルシフェラーゼ反応を使っている。', a:false, fact:'発光機構は多様。エクオリン（Ca²⁺依存）、バクテリア共生（lux遺伝子）、GFP蛍光共鳴など、異なる分子機構が独立に進化した。' },
+  { q:'クオラムセンシングとは細菌が自分の密度を感知して遺伝子発現を調節する仕組みである。', a:true, fact:'クオラムセンシングはV. fischeriの発光研究から発見された。細菌は化学シグナル（AHL等）を放出・検知して集団行動する。' },
+  { q:'発光するキノコは世界に5種類以下しか知られていない。', a:false, fact:'発光するキノコ（発光菌類）は世界で100種以上知られている。ヤコウタケ（日本）やPanellus stipticus（北米）などが有名。' },
+  { q:'チョウチンアンコウのオスもメスと同様に発光器を持つ。', a:false, fact:'発光器（餌木）を持つのはメスのみ。チョウチンアンコウのオスはメスより遥かに小さく、成体になるとメスに寄生合体して生殖する。' },
+  { q:'ウミホタルは体内で光るのではなく、体外に発光物質を放出して光らせる。', a:true, fact:'バルグラ（貝虫類）は水中にルシフェリンとルシフェラーゼを分泌放出し、体外で化学反応を起こして発光雲を作る。' },
+  { q:'生物発光と生物蛍光は同じ現象である。', a:false, fact:'生物発光は化学反応で光を「産生」する。生物蛍光は外部の光を吸収して別の波長で「放射」する。サンゴの蛍光は後者の例。' },
+  { q:'ホタルイカの発光器は全身に分布しており、腹側に特に多い。', a:true, fact:'ホタルイカは全身に約1000個の発光器を持ち、腹側に集中。これはカウンターイルミネーション（逆照明偽装）に使われる。' },
+  { q:'生物発光は陸上生物にのみ見られ、深海生物では発光しない。', a:false, fact:'深海生物の推定50〜90%が何らかの形で発光能力を持つとされる。生物発光は陸上より海洋・深海で圧倒的に多様。' },
+  { q:'ATP（アデノシン三リン酸）はホタルの発光反応に必須である。', a:true, fact:'ホタルのルシフェラーゼはルシフェリンをATPとMg²⁺の存在下で酸化する。この反応がATPアッセイキットとして広く利用される。' },
+];
+
+let qState = { mode: null, questions: [], current: 0, score: 0, correct: 0, answered: false };
+
+function shuffle(arr) { return [...arr].sort(() => Math.random() - 0.5); }
+
+function startQuiz(mode) {
+  qState.mode = mode;
+  qState.score = 0;
+  qState.correct = 0;
+  qState.current = 0;
+  qState.answered = false;
+  if (mode === 'truefalse') {
+    qState.questions = shuffle(TRUE_FALSE).slice(0, 20);
+  } else {
+    qState.questions = shuffle(ORGANISMS).slice(0, 20);
+  }
+  document.getElementById('q-score').textContent = '0';
+  document.getElementById('q-num').textContent = '1';
+  document.getElementById('progress-bar').style.width = '0%';
+  showScreen('quiz');
+  renderQuestion();
+}
+
+function renderQuestion() {
+  const q = qState.questions[qState.current];
+  document.getElementById('q-num').textContent = qState.current + 1;
+  document.getElementById('progress-bar').style.width = ((qState.current / 20) * 100) + '%';
+  document.getElementById('answer-panel').classList.add('hidden');
+  document.getElementById('q-choices').innerHTML = '';  // xss-ok: reviewed-internal-data
+  qState.answered = false;
+
+  if (qState.mode === 'organism') {
+    document.getElementById('q-mode-label').textContent = '生物名当てクイズ';
+    document.getElementById('q-text').innerHTML = `<p class="mb-2">${q.desc}</p><p class="text-xs text-gray-400">発光機構: ${q.mechanism}</p>`; // xss-ok: internal constant
+    const choices = shuffle(ORGANISMS.filter(o => o.name !== q.name)).slice(0,3).concat([q]);
+    makeChoiceButtons(shuffle(choices), q, o => o.name, o => `${o.emoji} ${o.name}（${o.en}）`);
+  } else if (qState.mode === 'mechanism') {
+    document.getElementById('q-mode-label').textContent = '発光機構マッチング';
+    document.getElementById('q-text').textContent = `「${q.name}」の発光機構はどれか？`;
+    const choices = shuffle(ORGANISMS.filter(o => o.name !== q.name)).slice(0,3).concat([q]);
+    makeChoiceButtons(shuffle(choices), q, o => o.mechanism, o => o.mechanism);
+  } else {
+    document.getElementById('q-mode-label').textContent = '○×クイズ';
+    document.getElementById('q-text').textContent = q.q;
+    makeTrueFalseButtons(q);
+  }
+}
+
+function makeChoiceButtons(choices, correct, keyFn, labelFn) {
+  const container = document.getElementById('q-choices');
+  choices.forEach(c => {
+    const btn = document.createElement('button');
+    btn.className = 'choice-btn bg-gray-700 hover:bg-gray-600 border-2 border-gray-600 rounded-xl py-3 px-4 text-sm text-left transition';
+    btn.textContent = labelFn(c);
+    btn.setAttribute('aria-label', `選択肢: ${labelFn(c)}`);
+    btn.addEventListener('click', () => {
+      if (qState.answered) return;
+      qState.answered = true;
+      const isCorrect = keyFn(c) === keyFn(correct);
+      selectAnswer(isCorrect, correct, choices, btn, keyFn);
+    });
+    container.appendChild(btn);
+  });
+}
+
+function makeTrueFalseButtons(q) {
+  const container = document.getElementById('q-choices');
+  const grid = document.createElement('div');
+  grid.className = 'grid grid-cols-2 gap-3';
+  [true, false].forEach(val => {
+    const btn = document.createElement('button');
+    btn.className = 'choice-btn bg-gray-700 hover:bg-gray-600 border-2 border-gray-600 rounded-xl py-4 px-4 text-lg font-bold text-center transition';
+    btn.textContent = val ? '⭕ 正しい' : '❌ 間違い';
+    btn.setAttribute('aria-label', val ? '正しい' : '間違い');
+    btn.addEventListener('click', () => {
+      if (qState.answered) return;
+      qState.answered = true;
+      const isCorrect = val === q.a;
+      grid.querySelectorAll('button').forEach(b => {
+        b.disabled = true;
+        const bVal = b.textContent.includes('⭕');
+        if (bVal === q.a) b.classList.add('correct');
+        else if (bVal !== q.a && !isCorrect && bVal === val) b.classList.add('wrong');
+      });
+      if (isCorrect) { qState.score += 10; qState.correct++; document.getElementById('q-score').textContent = qState.score; }
+      showAnswer(isCorrect, null, q.fact, null, null);
+    });
+    grid.appendChild(btn);
+  });
+  container.appendChild(grid);
+}
+
+function selectAnswer(isCorrect, correct, choices, selectedBtn, keyFn) {
+  document.getElementById('q-choices').querySelectorAll('button').forEach((btn, i) => {
+    btn.disabled = true;
+    if (keyFn(choices[i]) === keyFn(correct)) btn.classList.add('correct');
+    else if (btn === selectedBtn && !isCorrect) btn.classList.add('wrong');
+  });
+  if (isCorrect) { qState.score += 10; qState.correct++; document.getElementById('q-score').textContent = qState.score; }
+  showAnswer(isCorrect, correct, null, correct?.wavelength, correct?.color);
+}
+
+function showAnswer(isCorrect, organism, tfFact, wavelength, color) {
+  document.getElementById('ans-verdict').innerHTML = isCorrect ? '<span class="text-green-400">✓ 正解！</span>' : '<span class="text-red-400">✗ 不正解</span>'; // xss-ok: internal constant
+  const wlPanel = document.getElementById('wavelength-info');
+  if (wavelength && color) {
+    wlPanel.classList.remove('hidden');
+    document.getElementById('wl-nm').textContent = wavelength + ' nm';
+    document.getElementById('wl-swatch').style.background = color;
+    document.getElementById('wl-swatch').style.boxShadow = `0 0 8px ${color}`;
+    document.getElementById('wl-desc').textContent = organism ? organism.colorName : '';
+  } else {
+    wlPanel.classList.add('hidden');
+  }
+  document.getElementById('ans-detail').textContent = organism ? organism.fact : tfFact;
+  if (qState.current >= 19) document.getElementById('next-btn').textContent = '結果を見る';
+  document.getElementById('answer-panel').classList.remove('hidden');
+}
+
+function nextQuestion() {
+  qState.current++;
+  if (qState.current >= 20) { showResult(); return; }
+  renderQuestion();
+}
+
+function showResult() {
+  const pct = Math.round(qState.correct / 20 * 100);
+  const emoji = pct >= 80 ? '✨' : pct >= 60 ? '💫' : pct >= 40 ? '🌟' : '🌑';
+  document.getElementById('res-emoji').textContent = emoji;
+  document.getElementById('res-score').textContent = qState.score + ' 点';
+  document.getElementById('res-detail').textContent = `20問中 ${qState.correct}問正解 (${pct}%)`;
+  const isNew = saveHS(qState.mode, qState.score);
+  document.getElementById('res-new').classList.toggle('hidden', !isNew);
+  showScreen('result');
+}
+
+function getHS() { try { return JSON.parse(localStorage.getItem('biolum_hs') || '{}'); } catch { return {}; } }
+function saveHS(mode, score) { const h = getHS(); const isNew = !h[mode] || score > h[mode]; if (isNew) { h[mode] = score; localStorage.setItem('biolum_hs', JSON.stringify(h)); } return isNew; }
+function renderHS() {
+  const h = getHS();
+  const modes = [{k:'organism',l:'生物名'},{k:'mechanism',l:'機構'},{k:'truefalse',l:'○×'}];
+  document.getElementById('hs-display').innerHTML = modes.map(m => `<div class="bg-gray-800 rounded-lg py-2 border border-gray-700"><div class="text-xs text-gray-400">${m.l}</div><div class="text-lg font-bold text-cyan-400">${h[m.k]||0}</div></div>`).join(''); // xss-ok: internal constant, computed
+}
+
+function showScreen(id) {
+  ['menu','quiz','result'].forEach(s => document.getElementById('screen-'+s).classList.toggle('hidden', s !== id));
+}
+function goMenu() { showScreen('menu'); renderHS(); }
+
+renderHS();
+</script>
+</body>
+</html>
